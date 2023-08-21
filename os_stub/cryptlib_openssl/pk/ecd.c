@@ -13,7 +13,7 @@
 
 #include "internal_crypt_lib.h"
 #include <openssl/evp.h>
-#include <crypto/evp.h>
+#include <openssl/core_names.h>
 
 /**
  * Allocates and Initializes one Edwards-Curve context for subsequent use
@@ -29,38 +29,32 @@
  **/
 void *libspdm_ecd_new_by_nid(size_t nid)
 {
-    EVP_PKEY_CTX *pkey_ctx;
     EVP_PKEY *pkey;
-    int32_t result;
-    int32_t openssl_pkey_type;
+    EVP_KEYMGMT *keymgmt;
 
     switch (nid) {
     case LIBSPDM_CRYPTO_NID_EDDSA_ED25519:
-        openssl_pkey_type = EVP_PKEY_ED25519;
+        keymgmt = EVP_KEYMGMT_fetch(NULL, SN_ED25519, NULL);
         break;
     case LIBSPDM_CRYPTO_NID_EDDSA_ED448:
-        openssl_pkey_type = EVP_PKEY_ED448;
+        keymgmt = EVP_KEYMGMT_fetch(NULL, SN_ED448, NULL);
         break;
     default:
         return NULL;
     }
 
-    pkey_ctx = EVP_PKEY_CTX_new_id(openssl_pkey_type, NULL);
-    if (pkey_ctx == NULL) {
+    if (!keymgmt) {
         return NULL;
     }
-    result = EVP_PKEY_keygen_init(pkey_ctx);
-    if (result <= 0) {
-        EVP_PKEY_CTX_free(pkey_ctx);
+
+    pkey = EVP_PKEY_new();
+    if (!pkey) {
         return NULL;
     }
-    pkey = NULL;
-    result = EVP_PKEY_keygen(pkey_ctx, &pkey);
-    if (result <= 0) {
-        EVP_PKEY_CTX_free(pkey_ctx);
+
+    if (EVP_PKEY_set_type_by_keymgmt(pkey, keymgmt) != 1) {
         return NULL;
     }
-    EVP_PKEY_CTX_free(pkey_ctx);
 
     return (void *)pkey;
 }
@@ -95,7 +89,6 @@ bool libspdm_ecd_set_pub_key(void *ecd_context, const uint8_t *public_key,
 {
     uint32_t final_pub_key_size;
     EVP_PKEY *evp_key;
-    EVP_PKEY *new_evp_key;
 
     if ((ecd_context == NULL) || (public_key == NULL)) {
         return false;
@@ -118,19 +111,11 @@ bool libspdm_ecd_set_pub_key(void *ecd_context, const uint8_t *public_key,
         return false;
     }
 
-    new_evp_key = EVP_PKEY_new_raw_public_key(EVP_PKEY_id(evp_key), NULL,
-                                              public_key, public_key_size);
-
-    if (new_evp_key == NULL) {
+    if (EVP_PKEY_set_octet_string_param(evp_key, OSSL_PKEY_PARAM_PUB_KEY,
+                                        public_key, public_key_size) != 1) {
         return false;
     }
 
-    if (evp_pkey_copy_downgraded(&evp_key, new_evp_key) != 1) {
-        EVP_PKEY_free(new_evp_key);
-        return false;
-    }
-
-    EVP_PKEY_free(new_evp_key);
     return true;
 }
 
@@ -153,7 +138,6 @@ bool libspdm_ecd_set_pri_key(void *ecd_context, const uint8_t *private_key,
 {
     uint32_t final_pri_key_size;
     EVP_PKEY *evp_key;
-    EVP_PKEY *new_evp_key;
 
     if ((ecd_context == NULL) || (private_key == NULL)) {
         return false;
@@ -176,18 +160,11 @@ bool libspdm_ecd_set_pri_key(void *ecd_context, const uint8_t *private_key,
         return false;
     }
 
-    new_evp_key = EVP_PKEY_new_raw_private_key(EVP_PKEY_id(evp_key), NULL,
-                                               private_key, private_key_size);
-    if (new_evp_key == NULL) {
+    if (EVP_PKEY_set_octet_string_param(evp_key, OSSL_PKEY_PARAM_PRIV_KEY,
+                                        private_key, private_key_size) != 1) {
         return false;
     }
 
-    if (evp_pkey_copy_downgraded(&evp_key, new_evp_key) != 1) {
-        EVP_PKEY_free(new_evp_key);
-        return false;
-    }
-
-    EVP_PKEY_free(new_evp_key);
     return true;
 }
 
