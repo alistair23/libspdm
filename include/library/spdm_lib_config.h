@@ -86,6 +86,11 @@
 #define LIBSPDM_ENABLE_CAPABILITY_ENDPOINT_INFO_CAP 1
 #endif
 
+/* SPDM 1.4 capabilities. */
+#ifndef LIBSPDM_MAX_BANK_COUNT
+#define LIBSPDM_MAX_BANK_COUNT SPDM_MAX_BANK_COUNT
+#endif
+
 /* Includes SPDM 1.3 features for CSR messages. If enabled then LIBSPDM_ENABLE_CAPABILITY_CSR_CAP
  * must also be enabled.
  */
